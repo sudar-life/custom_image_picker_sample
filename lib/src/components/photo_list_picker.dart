@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker_sample/src/model/asset_entity_value.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 class PhotoListPicker extends StatefulWidget {
@@ -12,7 +13,7 @@ class PhotoListPicker extends StatefulWidget {
 
 class _PhotoListPickerState extends State<PhotoListPicker> {
   var albums = <AssetPathEntity>[];
-  var imageWidget = <Widget>[];
+  var imageList = <AssetEntityValue>[];
   var scrollController = ScrollController();
   int currentPage = 0;
   int lastPage = -1;
@@ -29,7 +30,6 @@ class _PhotoListPickerState extends State<PhotoListPicker> {
       double currentScroll = scrollController.position.pixels;
       if (currentScroll / maxScroll > 0.33 && currentPage != lastPage) {
         lastPage = currentPage;
-        print("Load!!!!!");
         _pagingPhotos();
       }
     });
@@ -51,23 +51,38 @@ class _PhotoListPickerState extends State<PhotoListPicker> {
           await albums.first.getAssetListPaged(currentPage, 60);
       setState(() {
         photos.forEach((element) {
-          imageWidget.add(_photoWidget(element));
+          imageList.add(AssetEntityValue(asset: element));
         });
         currentPage++;
       });
     }
   }
 
-  Widget _photoWidget(AssetEntity asset) {
-    return FutureBuilder<Uint8List?>(
-      future: asset.thumbDataWithSize(200, 200),
-      builder: (BuildContext context, AsyncSnapshot<Uint8List?> snapshot) {
-        if (snapshot.connectionState == ConnectionState.done)
-          return Image.memory(
-            snapshot.data!,
-            fit: BoxFit.cover,
+  Widget _photoWidget(AssetEntityValue asset) {
+    return FutureBuilder<Uint8List>(
+      future: asset.loadImageFile(),
+      builder: (_, snapshot) {
+        if (snapshot.hasData) {
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                asset.isSelected = !asset.isSelected;
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                    width: asset.isSelected ? 10 : 0, color: Colors.blue),
+              ),
+              child: Image.memory(
+                snapshot.data!,
+                fit: BoxFit.cover,
+              ),
+            ),
           );
-        return Container();
+        } else {
+          return Container();
+        }
       },
     );
   }
@@ -76,11 +91,11 @@ class _PhotoListPickerState extends State<PhotoListPicker> {
   Widget build(BuildContext context) {
     return GridView.builder(
       controller: scrollController,
-      itemCount: imageWidget.length,
+      itemCount: imageList.length,
       gridDelegate:
-          SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+          SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4),
       itemBuilder: (BuildContext context, int index) {
-        return imageWidget[index];
+        return _photoWidget(imageList[index]);
       },
     );
   }
